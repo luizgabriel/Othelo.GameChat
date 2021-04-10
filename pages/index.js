@@ -1,65 +1,64 @@
-import Head from 'next/head'
-import styles from '../styles/Home.module.css'
+import Board from "../components/Board"
+import Button from "../components/Button"
+import Layout from "../components/Layout"
+import Chat from "../components/Chat"
+import { useCallback, useEffect, useState } from "react"
+import useWebSocket, { ReadyState } from 'react-use-websocket'
 
-export default function Home() {
+const connectionStatus = {
+  [ReadyState.CONNECTING]: 'Connecting',
+  [ReadyState.OPEN]: 'Open',
+  [ReadyState.CLOSING]: 'Closing',
+  [ReadyState.CLOSED]: 'Closed',
+  [ReadyState.UNINSTANTIATED]: 'Uninstantiated',
+};
+
+const Home = () => {
+  const [boardState, setBoardState] = useState(new Array(64).fill(0))
+  const [boardDisabled, setBoardDisabled] = useState(false);
+  const { sendMessage, lastMessage, readyState } = useWebSocket('wss://localhost:3000/socket.io')
+
+  const onClickCell = useCallback((idx) => {
+    const newState = [...boardState];
+    newState[idx] = (newState[idx] + 1) % 3;
+    setBoardState(newState);
+  }, [boardState])
+
+  const onClickReset = () => {
+    setBoardState(new Array(64).fill(0));
+  }
+
+  const onClickFinishTurn = () => {
+    console.log('finish turn');
+    sendMessage('finish-turn');
+  }
+
+  useEffect(() => {
+    setBoardState(readyState !== ReadyState.OPEN);
+  }, [readyState]);
+
   return (
-    <div className={styles.container}>
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+    <Layout>
+      <div className="flex flex-col h-screen">
+        <div className="flex border-red-100 border rounded-lg m-6 w-full h-full shadow-lg">
+            <div className="flex flex-col items-center justify-center content-center w-2/3 bg-gray-300">
+                <Board state={boardState} onClickCell={onClickCell} disabled={boardDisabled} />
 
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
+                <div className="flex flex-row">
+                  {connectionStatus[readyState]}
+                  <Button onClick={onClickFinishTurn}>
+                    Finalizar Turno
+                  </Button>
+                  <Button onClick={onClickReset}>
+                    Resetar Jogo
+                  </Button>
+                </div>
+            </div>
+            <Chat />
         </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className={styles.logo} />
-        </a>
-      </footer>
-    </div>
+      </div>
+    </Layout>
   )
 }
+
+export default Home;
