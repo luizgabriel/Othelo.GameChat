@@ -46,7 +46,7 @@ const appendMessageDate = (message) => {
 
 const generateInitialBoard = () => new Array(BOARD_SIZE).fill(0)
 
-export const getStaticProps = () => {
+export const getServerSideProps = () => {
   const socketUrl = process.env.SOCKET_URL || 'ws://localhost:3000/websocket';
 
   return {

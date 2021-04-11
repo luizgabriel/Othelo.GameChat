@@ -61,7 +61,9 @@ const Chat = ({ messages, connectionMessage, onSendMessage }) => {
     const getCurrentInputText = () => inputRef.current.value;
 
     const sendMessage =() => {
-        onSendMessage(getCurrentInputText());
+        const currentInputText = getCurrentInputText().trim();
+        if (currentInputText.length > 0)
+            onSendMessage(getCurrentInputText());
         inputRef.current.value = "";
     };
 
