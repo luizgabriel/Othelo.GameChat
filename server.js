@@ -70,8 +70,8 @@ app.prepare().then(() => {
         });
 
         if (wss.clients.size >= 2) {
-            let i = 1;
-            wss.broadcastFn(() => M.setPlayerMessage(i++));
+            let i = 0;
+            wss.broadcastFn(() => M.setPlayerMessage( 1 + i++ % 2));
         }
 
     })
