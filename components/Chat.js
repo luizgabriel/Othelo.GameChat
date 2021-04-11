@@ -1,5 +1,4 @@
-import { useCallback, useRef } from "react";
-import Button from "./Button";
+import { useRef } from "react";
 
 const ChatHeader = () => {
     return (
@@ -19,7 +18,7 @@ const ReceivedMessage = ({ message, ts }) => {
                 <div className="bg-gray-200 rounded py-2 px-5">
                     {message}
                 </div>
-                {ts ? <div className="text-sm text-gray-600">{ts.fromNow()}</div> : null}
+                {ts ? <div className="text-xs text-gray-400">{ts.format('HH:mm')}</div> : null}
             </div>
         </div>
     );
@@ -40,7 +39,7 @@ const SentMessage = ({ message, ts }) => {
                 <div className="bg-blue-100 rounded py-2 px-5">
                     {message}
                 </div>
-                {ts ? <div className="text-sm text-gray-600">{ts.fromNow()}</div> : null}
+                {ts ? <div className="text-xs text-gray-400">{ts.format('HH:mm')}</div> : null}
             </div>
         </div>
     );
@@ -76,8 +75,8 @@ const Chat = ({ messages, connectionMessage, onSendMessage }) => {
         <div className="w-1/3 border-l border-gray-400 flex flex-col bg-white rounded-r rounded-sm">
             <ChatHeader />
             <div className="flex-auto overflow-y-auto p-5 space-y-4">
-                {messages.map(({type, message}, i) => (
-                    <ChatMessage key={i} type={type} message={message} />
+                {messages.map((message, i) => (
+                    <ChatMessage key={i} {...message} />
                 ))}
             </div>
 

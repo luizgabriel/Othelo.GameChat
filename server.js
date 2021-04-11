@@ -2,12 +2,14 @@ const http = require('http')
 const url = require('url')
 const ws = require('ws')
 const next = require('next')
-const { SEND_MESSAGE_ACTION, enteredGameMessage, receivedSystemMessageAction, textMessage } = require('./lib/messages')
+const { SEND_MESSAGE_ACTION, enteredGameMessage, receivedSystemMessageAction, textMessage, setColorMessage, setPlayerMessage } = require('./lib/messages')
 
 const port = parseInt(process.env.PORT || "3000")
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev })
 const handle = app.getRequestHandler()
+
+const colors = ['black', 'white'];
 
 app.prepare().then(() => {
 
@@ -30,8 +32,6 @@ app.prepare().then(() => {
         console.log(`> Started server on port ${port}`)
     });
 
-    const sendMessage = (message) => cl => cl.send(message)
-
     wss.on('connection', (ws) => {
 
         ws.on('message', (message) => {
@@ -40,6 +40,15 @@ app.prepare().then(() => {
             wss.broadcast(message, ws);
 
         });
+
+        if (wss.clients.size >= 2) {
+
+            let i = 1;
+            wss.clients.forEach((client) => {
+                client.send(setPlayerMessage(i++));
+            })
+
+        }
 
     })
 })

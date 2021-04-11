@@ -4,7 +4,7 @@ import Layout from "../components/Layout"
 import Chat from "../components/Chat"
 import { useCallback, useEffect, useState } from "react"
 import useWebSocket, { ReadyState } from 'react-use-websocket'
-import { helloMessage, finishedTurnMessage, textMessage, HELLO_EVENT, FINISHED_TURN_EVENT, TEXT_MESSAGE_EVENT, touchedBoardMessage, TOUCHED_BOARD_EVENT } from '../lib/messages'
+import { helloMessage, finishedTurnMessage, textMessage, touchedBoardMessage, HELLO_EVENT, FINISHED_TURN_EVENT, TEXT_MESSAGE_EVENT, TOUCHED_BOARD_EVENT, SET_PLAYER_EVENT } from '../lib/messages'
 import moment from "moment"
 import 'moment/locale/pt-br'
 
@@ -34,35 +34,38 @@ const fromSocketToMessage = (data) => {
       type: "system",
       message: "Seu adversário entrou no jogo: " + data.name
     }
-  else if (data.event === FINISHED_TURN_EVENT)
-    return {
-      type: "system",
-      message: "Finalizou o turno: " + data.connectionId
-    }
 }
 
-const appendMessageDate = (message) => ({
-  ...message,
-  ts: moment()
-})
+const appendMessageDate = (message) => {
+  return {
+    ...message,
+    ts: moment(),
+  };
+}
+
+const generateInitialBoard = () => new Array(BOARD_SIZE).fill(0)
 
 const Home = () => {
-  const [boardState, setBoardState] = useState(new Array(BOARD_SIZE).fill(0))
-  const [boardDisabled, setBoardDisabled] = useState(false);
+  const [boardState, setBoardState] = useState(generateInitialBoard())
+  const [boardDisabled, setBoardDisabled] = useState(true);
   const { sendMessage, lastMessage, readyState } = useWebSocket('ws://localhost:3000/websocket')
   const [messages, setMessages] = useState([]);
   const [name, setName] = useState();
+  const [id, setId] = useState(0);
 
-  const resetBoardState = () => setBoardDisabled(new Array(BOARD_SIZE).fill(0));
+  const resetBoardState = () => setBoardDisabled(generateInitialBoard());
   const appendNewMessage = (message) => setMessages((oldMessages) => oldMessages.concat(appendMessageDate(message)));
   const updateBoard = useCallback((idx, value) => {
     const newState = [...boardState];
-    const newValue = value || (newState[idx] + 1) % 3;
+    const currentValue = boardState[idx];
+    let newValue = value;
+    if (typeof value === 'undefined') newValue = (currentValue !== id) ? id : 0;
+
     newState[idx] = newValue;
     setBoardState(newState);
 
     return newValue;
-  }, [boardState]);
+  }, [boardState, id]);
 
   useEffect(() => {
     if (!name) {
@@ -84,9 +87,12 @@ const Home = () => {
     const message = parsedSocketMessage(lastMessage);
     if (!message) return;
 
-    if (message.event === HELLO_EVENT) {
+    if (message.event === SET_PLAYER_EVENT) {
       resetBoardState();
-      setBoardDisabled(true);
+      setId(message.id);
+      if (message.id === 1) 
+        setBoardDisabled(false);
+
     } else if (message.event === FINISHED_TURN_EVENT) {
       setBoardDisabled(false);
     } else if (message.event === TOUCHED_BOARD_EVENT) {
@@ -108,10 +114,6 @@ const Home = () => {
     setBoardDisabled(true);
   }, [boardDisabled])
 
-  useEffect(() => {
-    setBoardDisabled(readyState !== ReadyState.OPEN);
-  }, [readyState]);
-
   const onSendMessage = useCallback((message) => {
     appendNewMessage({
       type: "sent",
@@ -125,9 +127,9 @@ const Home = () => {
       <div className="flex flex-col h-screen">
         <div className="flex border-red-100 border rounded-lg m-6 w-full h-full shadow-lg">
             <div className="flex flex-col items-center justify-center content-center w-2/3 bg-gray-300">
-                <Board state={boardState} onClickCell={onClickCell} disabled={boardDisabled || !name} />
+                <Board state={boardState} onClickCell={onClickCell} disabled={boardDisabled || !name || !id} />
 
-                {name ? (
+                {name && id ? (
                   <div className="flex flex-row">
                     {boardDisabled ? (
                       <span className="text-md text-center">
