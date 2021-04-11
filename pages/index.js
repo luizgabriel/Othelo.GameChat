@@ -1,168 +1,182 @@
 import Board from "../components/Board"
-import Button from "../components/Button"
 import Layout from "../components/Layout"
 import Chat from "../components/Chat"
-import { useRouter } from 'next/router'
-import { useCallback, useEffect, useState } from "react"
-import useWebSocket, { ReadyState } from 'react-use-websocket'
-import { helloMessage, finishedTurnMessage, textMessage, touchedBoardMessage, HELLO_EVENT, FINISHED_TURN_EVENT, TEXT_MESSAGE_EVENT, TOUCHED_BOARD_EVENT, SET_PLAYER_EVENT } from '../lib/messages'
+import {useCallback, useEffect, useState} from "react"
+import useWebSocket, {ReadyState} from 'react-use-websocket'
+import B from '../lib/board'
+import M from '../lib/messages'
 import moment from "moment"
 import 'moment/locale/pt-br'
+import BoardController from "../components/BoardController";
 
 const CONNECTION_STATUS = {
-  [ReadyState.CONNECTING]: 'Conectando',
-  [ReadyState.OPEN]: 'Aberta',
-  [ReadyState.CLOSING]: 'Fechando',
-  [ReadyState.CLOSED]: 'Fechada',
-  [ReadyState.UNINSTANTIATED]: 'Não iniciada',
+    [ReadyState.CONNECTING]: 'Conectando',
+    [ReadyState.OPEN]: 'Aberta',
+    [ReadyState.CLOSING]: 'Fechando',
+    [ReadyState.CLOSED]: 'Fechada',
+    [ReadyState.UNINSTANTIATED]: 'Não iniciada',
 };
 
-const BOARD_SIZE = 64;
-
 const parsedSocketMessage = (socketMessage) => {
-  if (!socketMessage || !socketMessage.data) return null;
-  return JSON.parse(socketMessage.data);
+    if (!socketMessage || !socketMessage.data) return null;
+    return JSON.parse(socketMessage.data);
 }
 
 const fromSocketToMessage = (data) => {
-  if (data.event === TEXT_MESSAGE_EVENT)
-    return {
-      type: "received",
-      message: data.message
-    }
-  else if (data.event === HELLO_EVENT)
-    return {
-      type: "system",
-      message: "Seu adversário entrou no jogo: " + data.name
-    }
+    if (data.event === M.TEXT_MESSAGE_EVENT)
+        return {
+            type: "received",
+            message: data.message
+        }
+    else if (data.event === M.HELLO_EVENT)
+        return {
+            type: "system",
+            message: "Seu adversário entrou no jogo"
+        }
+    else if (data.event === M.SET_PLAYER_EVENT)
+        return {
+            type: "system",
+            message: data.id === 1 ? "Você joga com as brancas!" : "Você joga com as pretas!"
+        }
+    else if (data.event === M.SURRENDER_EVENT)
+        return {
+            type: "system",
+            message: "Seu adversário desistiu da partida!"
+        }
+    else if (data.event === M.RESET_GAME_EVENT)
+        return {
+            type: "system",
+            message: "Seu adversário reiniciou o tabuleiro!"
+        }
 }
 
 const appendMessageDate = (message) => {
-  return {
-    ...message,
-    ts: moment(),
-  };
+    return {
+        ...message,
+        ts: moment(),
+    };
 }
 
-const generateInitialBoard = () => new Array(BOARD_SIZE).fill(0)
 
+// noinspection JSUnusedGlobalSymbols
 export const getServerSideProps = () => {
-  const socketUrl = process.env.SOCKET_URL || 'ws://localhost:3000/websocket';
+    const socketUrl = process.env.SOCKET_URL || 'ws://localhost:3000/websocket';
 
-  return {
-    props: { socketUrl }
-  }
+    return {
+        props: {socketUrl}
+    }
 };
 
-const Home = ({ socketUrl }) => {
-  const [boardState, setBoardState] = useState(generateInitialBoard())
-  const [boardDisabled, setBoardDisabled] = useState(true)
-  const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl)
-  const [messages, setMessages] = useState([]);
-  const [name, setName] = useState();
-  const [id, setId] = useState(0);
+const Home = ({socketUrl}) => {
+    const [boardState, setBoardState] = useState(B.generateInitial())
+    const [boardDisabled, setBoardDisabled] = useState(true)
+    const {sendMessage, lastMessage, readyState} = useWebSocket(socketUrl)
+    const [messages, setMessages] = useState([]);
+    const [id, setId] = useState(0);
+    const [endOfGame, setEndOfGame] = useState(0)
 
-  const resetBoardState = () => setBoardDisabled(generateInitialBoard());
-  const appendNewMessage = (message) => setMessages((oldMessages) => oldMessages.concat(appendMessageDate(message)));
-  const updateBoard = useCallback((idx, value) => {
-    const newState = [...boardState];
-    const currentValue = boardState[idx];
-    let newValue = value;
-    if (typeof value === 'undefined') newValue = (currentValue !== id) ? id : 0;
+    const resetBoardState = () => setBoardState(B.generateInitial());
+    const appendNewMessage = (message) => setMessages((oldMessages) => oldMessages.concat(appendMessageDate(message)));
+    const touchBoard = useCallback((idx) => {
+        const newBoard = B.touch(idx, id)(boardState);
+        setBoardState(newBoard);
+        return newBoard[idx];
+    }, [boardState, id]);
 
-    newState[idx] = newValue;
-    setBoardState(newState);
-
-    return newValue;
-  }, [boardState, id]);
-
-  useEffect(() => {
-    if (!name) {
-      const newName = prompt("Qual o seu nome?");
-      setName(newName);
-
-      if (newName) {
-        sendMessage(helloMessage(newName))
-        appendNewMessage({
-          type: "system",
-          message: "Você entrou no jogo: " + newName
-        });
-      }
+    const updateBoard = (idx, value) => {
+        setBoardState(B.update(idx, value));
+        return value;
     }
 
-  }, [name]);
+    useEffect(() => {
+        appendNewMessage({type: "system", message: "Você entrou no jogo!"})
+        sendMessage(M.helloMessage())
+    }, [])
 
-  useEffect(() => {
-    const message = parsedSocketMessage(lastMessage);
-    if (!message) return;
+    useEffect(() => {
+        const message = parsedSocketMessage(lastMessage)
+        if (!message) return
 
-    if (message.event === SET_PLAYER_EVENT) {
-      resetBoardState();
-      setId(message.id);
-      if (message.id === 2) // player 2 starts
-        setBoardDisabled(false);
+        if (message.event === M.SET_PLAYER_EVENT) {
+            resetBoardState()
+            setId(message.id)
+            setBoardDisabled(message.id !== 2)
+        } else if (message.event === M.FINISHED_TURN_EVENT) {
+            setBoardDisabled(false)
+        } else if (message.event === M.TOUCHED_BOARD_EVENT) {
+            updateBoard(message.pos, message.value)
+        } else if (message.event === M.END_OF_GAME_EVENT) {
+            setEndOfGame(message.winner)
+        } else if (message.event === M.SURRENDER_EVENT) {
+            setBoardDisabled(false)
+            setEndOfGame(id)
+        } else if (message.event === M.RESET_GAME_EVENT) {
+            resetBoardState()
+            setEndOfGame(0)
+            setBoardDisabled(true)
+        }
 
-    } else if (message.event === FINISHED_TURN_EVENT) {
-      setBoardDisabled(false);
-    } else if (message.event === TOUCHED_BOARD_EVENT) {
-      updateBoard(message.pos, message.value)
+        const textMessage = fromSocketToMessage(message)
+        if (textMessage)
+            appendNewMessage(textMessage)
+
+    }, [lastMessage])
+
+    const onClickCell = (pos) => {
+        const newValue = touchBoard(pos)
+        sendMessage(M.touchedBoardMessage(pos, newValue))
     }
 
-    const textMessage = fromSocketToMessage(message);
-    if (textMessage)
-      appendNewMessage(textMessage);
+    const onClickFinishTurn = () => {
+        sendMessage(M.finishedTurnMessage())
+        setBoardDisabled(true)
+    }
 
-  }, [lastMessage]);
+    const onSendMessage = (message) => {
+        appendNewMessage({type: "sent", message})
+        sendMessage(M.textMessage(message))
+    }
 
-  const onClickCell = (idx) => {
-    sendMessage(touchedBoardMessage(idx, updateBoard(idx)))
-  };
+    const onClickSurrender = useCallback(() => {
+        appendNewMessage({type: "system", message: "Você desistiu! Fim de jogo!"})
+        sendMessage(M.surrenderMessage(id))
+        setBoardDisabled(true)
+    }, [id])
 
-  const onClickFinishTurn = useCallback(() => {
-    sendMessage(finishedTurnMessage());
-    setBoardDisabled(true);
-  }, [boardDisabled])
+    const onRestartGame = () => {
+        appendNewMessage({type: "system", message: "Fim de jogo! Reiniciando o tabuleiro!"})
+        resetBoardState()
+        setBoardDisabled(false)
+        sendMessage(M.resetGameMessage())
+        setEndOfGame(0)
+    }
 
-  const onSendMessage = useCallback((message) => {
-    appendNewMessage({
-      type: "sent",
-      message
-    })
-    sendMessage(textMessage(message))
-  })
+    return (
+        <Layout>
+            <div className="flex flex-col h-screen">
+                <div className="flex border-red-100 border rounded-lg m-6 w-full h-full shadow-lg">
+                    <div className="flex flex-col items-center justify-center content-center w-2/3 bg-gray-300">
+                        <Board
+                            state={boardState}
+                            onClickCell={onClickCell}
+                            disabled={boardDisabled || !id || endOfGame}/>
 
-  return (
-    <Layout>
-      <div className="flex flex-col h-screen">
-        <div className="flex border-red-100 border rounded-lg m-6 w-full h-full shadow-lg">
-            <div className="flex flex-col items-center justify-center content-center w-2/3 bg-gray-300">
-                <Board state={boardState} onClickCell={onClickCell} disabled={boardDisabled || !name || !id} />
-
-                {name && id ? (
-                  <div className="flex flex-row">
-                    {boardDisabled ? (
-                      <span className="text-md text-center">
-                        <b>Tabuleiro bloqueado!</b>
-                        <br /> 
-                        O seu adversário está jogando. Aguarde...
-                      </span>
-                    ): (
-                      <Button onClick={onClickFinishTurn}>
-                        Finalizar Turno
-                      </Button>
-                    )}
-                  </div>
-                ): null}
-                
+                        <BoardController
+                            boardDisabled={boardDisabled}
+                            endOfGame={endOfGame}
+                            id={id}
+                            onClickSurrender={onClickSurrender}
+                            onRestartGame={onRestartGame}
+                            onClickFinishTurn={onClickFinishTurn}/>
+                    </div>
+                    <Chat
+                        messages={messages}
+                        connectionMessage={CONNECTION_STATUS[readyState]}
+                        onSendMessage={onSendMessage}/>
+                </div>
             </div>
-            <Chat 
-              messages={messages}
-              connectionMessage={CONNECTION_STATUS[readyState]}
-              onSendMessage={onSendMessage} />
-        </div>
-      </div>
-    </Layout>
-  )
+        </Layout>
+    )
 }
 
 export default Home;
