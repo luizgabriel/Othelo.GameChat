@@ -17,4 +17,4 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Demonstration
 
-Access: https://othello-game-chat.herokuapp.com/
+Open: https://othello-game-chat.herokuapp.com/
