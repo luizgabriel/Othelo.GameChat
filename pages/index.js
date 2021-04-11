@@ -2,6 +2,7 @@ import Board from "../components/Board"
 import Button from "../components/Button"
 import Layout from "../components/Layout"
 import Chat from "../components/Chat"
+import { useRouter } from 'next/router'
 import { useCallback, useEffect, useState } from "react"
 import useWebSocket, { ReadyState } from 'react-use-websocket'
 import { helloMessage, finishedTurnMessage, textMessage, touchedBoardMessage, HELLO_EVENT, FINISHED_TURN_EVENT, TEXT_MESSAGE_EVENT, TOUCHED_BOARD_EVENT, SET_PLAYER_EVENT } from '../lib/messages'
@@ -17,6 +18,7 @@ const CONNECTION_STATUS = {
 };
 
 const BOARD_SIZE = 64;
+const SOCKET_URL = process.env.SOCKET_URL || 'ws://localhost:3000/websocket';
 
 const parsedSocketMessage = (socketMessage) => {
   if (!socketMessage || !socketMessage.data) return null;
@@ -44,12 +46,12 @@ const appendMessageDate = (message) => {
 }
 
 const generateInitialBoard = () => new Array(BOARD_SIZE).fill(0)
-const WS_PROTOCOL = process.env.NODE_ENV !== 'production'? 'ws' : 'wss';
 
 const Home = () => {
+  const router = useRouter();
   const [boardState, setBoardState] = useState(generateInitialBoard())
-  const [boardDisabled, setBoardDisabled] = useState(true);
-  const { sendMessage, lastMessage, readyState } = useWebSocket(WS_PROTOCOL + `://${window.location.host}/websocket`)
+  const [boardDisabled, setBoardDisabled] = useState(true)
+  const { sendMessage, lastMessage, readyState } = useWebSocket(SOCKET_URL)
   const [messages, setMessages] = useState([]);
   const [name, setName] = useState();
   const [id, setId] = useState(0);
