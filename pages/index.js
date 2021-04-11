@@ -18,7 +18,6 @@ const CONNECTION_STATUS = {
 };
 
 const BOARD_SIZE = 64;
-const SOCKET_URL = process.env.SOCKET_URL || 'ws://localhost:3000/websocket';
 
 const parsedSocketMessage = (socketMessage) => {
   if (!socketMessage || !socketMessage.data) return null;
@@ -47,11 +46,16 @@ const appendMessageDate = (message) => {
 
 const generateInitialBoard = () => new Array(BOARD_SIZE).fill(0)
 
-const Home = () => {
-  const router = useRouter();
+export const getInitialProps = () => {
+  return {
+    socketUrl: process.env.SOCKET_URL || 'ws://localhost:3000/websocket'
+  }
+};
+
+const Home = ({ socketUrl }) => {
   const [boardState, setBoardState] = useState(generateInitialBoard())
   const [boardDisabled, setBoardDisabled] = useState(true)
-  const { sendMessage, lastMessage, readyState } = useWebSocket(SOCKET_URL)
+  const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl)
   const [messages, setMessages] = useState([]);
   const [name, setName] = useState();
   const [id, setId] = useState(0);
