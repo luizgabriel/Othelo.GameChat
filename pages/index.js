@@ -99,7 +99,7 @@ const Home = ({ socketUrl }) => {
     if (message.event === SET_PLAYER_EVENT) {
       resetBoardState();
       setId(message.id);
-      if (message.id === 1) 
+      if (message.id === 2) // player 2 starts
         setBoardDisabled(false);
 
     } else if (message.event === FINISHED_TURN_EVENT) {
