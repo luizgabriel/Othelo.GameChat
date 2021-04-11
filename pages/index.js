@@ -17,7 +17,6 @@ const CONNECTION_STATUS = {
 };
 
 const BOARD_SIZE = 64;
-const SOCKET_URL = process.env.VERCEL_URL ? `wss://${process.env.VERCEL_URL}/websocket` : 'ws://localhost:3000/websocket';
 
 const parsedSocketMessage = (socketMessage) => {
   if (!socketMessage || !socketMessage.data) return null;
@@ -45,11 +44,12 @@ const appendMessageDate = (message) => {
 }
 
 const generateInitialBoard = () => new Array(BOARD_SIZE).fill(0)
+const WS_PROTOCOL = process.env.NODE_ENV !== 'production'? 'ws' : 'wss';
 
 const Home = () => {
   const [boardState, setBoardState] = useState(generateInitialBoard())
   const [boardDisabled, setBoardDisabled] = useState(true);
-  const { sendMessage, lastMessage, readyState } = useWebSocket(SOCKET_URL)
+  const { sendMessage, lastMessage, readyState } = useWebSocket(WS_PROTOCOL + `://${window.location.host}/websocket`)
   const [messages, setMessages] = useState([]);
   const [name, setName] = useState();
   const [id, setId] = useState(0);
