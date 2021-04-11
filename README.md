@@ -15,6 +15,6 @@ yarn dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the server running.
 
-## Demo
+## Demonstration
 
 Access: https://othello-game-chat.herokuapp.com/
